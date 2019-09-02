@@ -20,6 +20,7 @@ def set_default(key, value):
 from .corenlp_tokenizer import CoreNLPTokenizer
 from .regexp_tokenizer import RegexpTokenizer
 from .simple_tokenizer import SimpleTokenizer
+from .spacy_tokenizer import SpacyTokenizer
 
 # Spacy is optional
 try:
