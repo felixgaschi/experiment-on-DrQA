@@ -49,7 +49,7 @@ def tokenize(text):
 # ------------------------------------------------------------------------------
 
 
-def load_dataset(path):
+def load_dataset(path, v2=False):
     """Load json file and store fields separately."""
     with open(path) as f:
         data = json.load(f)['data']
@@ -62,13 +62,22 @@ def load_dataset(path):
                 output['qids'].append(qa['id'])
                 output['questions'].append(qa['question'])
                 output['qid2cid'].append(len(output['contexts']) - 1)
-                if 'answers' in qa:
+                if v2 and qa["is_impossible"]:
+                    output["answers"].append([{"text": "", "answer_start": 0}])
+                elif 'answers' in qa:
                     output['answers'].append(qa['answers'])
+                    if len(qa["answers"]) == 0:
+                        print("Warning no answer for: {}".format(qa))
+                else:
+                    print("Warning no answers key for: {}".format(qa))
+
     return output
 
 
 def find_answer(offsets, begin_offset, end_offset):
     """Match token offsets with the char begin/end offsets of the answer."""
+    if begin_offset == end_offset == 0:
+        return 0, 0 
     start = [i for i, tok in enumerate(offsets) if tok[0] == begin_offset]
     end = [i for i, tok in enumerate(offsets) if tok[1] == end_offset]
     assert(len(start) <= 1)
@@ -103,12 +112,16 @@ def process_dataset(data, tokenizer, workers=None):
         ner = c_tokens[data['qid2cid'][idx]]['ner']
         ans_tokens = []
         if len(data['answers']) > 0:
+            test = False
             for ans in data['answers'][idx]:
                 found = find_answer(offsets,
                                     ans['answer_start'],
                                     ans['answer_start'] + len(ans['text']))
                 if found:
                     ans_tokens.append(found)
+                    test = True
+            if not test:
+                print("Warning: answer not found in {}".format(data["answers"][idx]))
         yield {
             'id': data['qids'][idx],
             'question': question,
@@ -126,21 +139,31 @@ def process_dataset(data, tokenizer, workers=None):
 # Commandline options
 # -----------------------------------------------------------------------------
 
+def str2bool(v):
+    return v.lower() in ('yes', 'true', 't', '1', 'y')
+
 
 parser = argparse.ArgumentParser()
+
+parser.register('type', 'bool', str2bool)
+
 parser.add_argument('data_dir', type=str, help='Path to SQuAD data directory')
 parser.add_argument('out_dir', type=str, help='Path to output file dir')
 parser.add_argument('--split', type=str, help='Filename for train/dev split',
                     default='SQuAD-v1.1-train')
 parser.add_argument('--workers', type=int, default=None)
 parser.add_argument('--tokenizer', type=str, default='corenlp')
+parser.add_argument('--v2', type="bool", default=False)
 args = parser.parse_args()
 
 t0 = time.time()
 
+if args.v2:
+    print("Using v2")
+
 in_file = os.path.join(args.data_dir, args.split + '.json')
 print('Loading dataset %s' % in_file, file=sys.stderr)
-dataset = load_dataset(in_file)
+dataset = load_dataset(in_file, v2=args.v2)
 
 out_file = os.path.join(
     args.out_dir, '%s-processed-%s.txt' % (args.split, args.tokenizer)

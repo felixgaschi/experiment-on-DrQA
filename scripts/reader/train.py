@@ -85,6 +85,7 @@ def add_train_args(parser):
     files.add_argument('--embedding-file', type=str,
                        default='glove.840B.300d.txt',
                        help='Space-separated pretrained embeddings file')
+    files.add_argument("--v2", type="bool", default=False)
 
     # Saving + loading
     save_load = parser.add_argument_group('Saving/Loading')
@@ -297,16 +298,27 @@ def validate_official(args, data_loader, model, global_stats,
         pred_s, pred_e, _ = model.predict(ex)
 
         for i in range(batch_size):
-            s_offset = offsets[ex_id[i]][pred_s[i][0]][0]
-            e_offset = offsets[ex_id[i]][pred_e[i][0]][1]
-            prediction = texts[ex_id[i]][s_offset:e_offset]
+            if pred_s[i][0] == pred_e[i][0] == 0 and args.v2:
+                prediction = ""
+            else:
+                s_offset = offsets[ex_id[i]][pred_s[i][0]][0]
+                e_offset = offsets[ex_id[i]][pred_e[i][0]][1]
+                prediction = texts[ex_id[i]][s_offset:e_offset]
 
             # Compute metrics
             ground_truths = answers[ex_id[i]]
-            exact_match.update(utils.metric_max_over_ground_truths(
-                utils.exact_match_score, prediction, ground_truths))
-            f1.update(utils.metric_max_over_ground_truths(
-                utils.f1_score, prediction, ground_truths))
+            if len(ground_truths) == 0:
+                if prediction == "":
+                    exact_match.update(1.)
+                    f1.update(1.)
+                else:
+                    exact_match.update(0.)
+                    f1.update(0.)
+            else:
+                exact_match.update(utils.metric_max_over_ground_truths(
+                    utils.exact_match_score, prediction, ground_truths))
+                f1.update(utils.metric_max_over_ground_truths(
+                    utils.f1_score, prediction, ground_truths))
 
         examples += batch_size
 
