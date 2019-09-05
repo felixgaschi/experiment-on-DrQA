@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 MODEL_ARCHITECTURE = {
     'model_type', 'embedding_dim', 'hidden_size', 'doc_layers',
     'question_layers', 'rnn_type', 'concat_rnn_layers', 'question_merge',
-    'use_qemb', 'use_in_question', 'use_pos', 'use_ner', 'use_lemma', 'use_tf'
+    'use_qemb', 'use_in_question', 'use_pos', 'use_ner', 'use_lemma', 'use_tf',
+    'use_charemb', 'characters', 'charemb_dim', 'char_len', 'before_qemb', 'charemb_kernel_size'
 }
 
 # Index of arguments concerning the model optimizer/training

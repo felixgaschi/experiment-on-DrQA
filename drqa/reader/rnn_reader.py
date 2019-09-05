@@ -30,13 +30,23 @@ class RnnDocReader(nn.Module):
                                       padding_idx=0)
 
         # Projection for attention weighted question
+        question_emb_dim = args.embedding_dim
+        if args.use_charemb and args.before_qemb:
+            question_emb_dim += args.charemb_dim
+
         if args.use_qemb:
-            self.qemb_match = layers.SeqAttnMatch(args.embedding_dim)
+            self.qemb_match = layers.SeqAttnMatch(question_emb_dim)
+        
+        if args.use_charemb and not args.before_qemb:
+            question_emb_dim += args.charemb_dim
 
         # Input size to RNN: word emb + question emb + manual features
         doc_input_size = args.embedding_dim + args.num_features
         if args.use_qemb:
             doc_input_size += args.embedding_dim
+        
+        if args.use_charemb:
+            doc_input_size += args.charemb_dim
 
         # RNN document encoder
         self.doc_rnn = layers.StackedBRNN(
@@ -52,7 +62,7 @@ class RnnDocReader(nn.Module):
 
         # RNN question encoder
         self.question_rnn = layers.StackedBRNN(
-            input_size=args.embedding_dim,
+            input_size=question_emb_dim,
             hidden_size=args.hidden_size,
             num_layers=args.question_layers,
             dropout_rate=args.dropout_rnn,
@@ -87,13 +97,22 @@ class RnnDocReader(nn.Module):
             normalize=normalize,
         )
 
-    def forward(self, x1, x1_f, x1_mask, x2, x2_mask):
+        if args.use_charemb:
+            self.char_emb = nn.Embedding(
+                len(args.characters) + 1,
+                args.charemb_dim,
+                padding_idx=0
+            )
+
+
+    def forward(self, x1, x1_f, x1_mask, x2, x2_mask, x1_char_emb, x2_char_emb):
         """Inputs:
         x1 = document word indices             [batch * len_d]
         x1_f = document word features indices  [batch * len_d * nfeat]
         x1_mask = document padding mask        [batch * len_d]
         x2 = question word indices             [batch * len_q]
         x2_mask = question padding mask        [batch * len_q]
+        char_emb = question char indices       [batch * len_d * len_w]
         """
         # Embed both document and question
         x1_emb = self.embedding(x1)
@@ -109,6 +128,27 @@ class RnnDocReader(nn.Module):
         # Form document encoding inputs
         drnn_input = [x1_emb]
 
+        if self.args.use_charemb:
+            x1_char_emb = self.char_emb(x1_char_emb)
+            x1_char_emb, _ = torch.max(x1_char_emb, -2)
+
+            x2_char_emb = self.char_emb(x2_char_emb)
+            x2_char_emb, _ = torch.max(x2_char_emb, -2)
+
+            if self.args.dropout_emb > 0:
+                x1_char_emb = nn.functional.dropout(x1_char_emb, p=self.args.dropout_emb,
+                                           training=self.training)
+                x2_char_emb = nn.functional.dropout(x2_char_emb, p=self.args.dropout_emb,
+                                           training=self.training)
+
+            if self.args.before_qemb:
+                x1_emb = torch.cat([x1_emb, x1_char_emb], 2)
+            else:
+                drnn_input.append(x1_char_emb)
+
+            if self.args.before_qemb:
+                x2_emb = torch.cat([x2_emb, x2_char_emb], 2)
+        
         # Add attention-weighted question representation
         if self.args.use_qemb:
             x2_weighted_emb = self.qemb_match(x1_emb, x2_emb, x2_mask)
@@ -122,6 +162,8 @@ class RnnDocReader(nn.Module):
         doc_hiddens = self.doc_rnn(torch.cat(drnn_input, 2), x1_mask)
 
         # Encode question with RNN + merge hiddens
+        if self.args.use_charemb and not self.args.before_qemb:
+            x2_emb = torch.cat([x2_emb, x2_char_emb], 2)
         question_hiddens = self.question_rnn(x2_emb, x2_mask)
         if self.args.question_merge == 'avg':
             q_merge_weights = layers.uniform_weights(question_hiddens, x2_mask)

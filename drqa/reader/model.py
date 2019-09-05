@@ -206,13 +206,13 @@ class DocReader(object):
         # Transfer to GPU
         if self.use_cuda:
             inputs = [e if e is None else e.cuda(non_blocking=True)
-                      for e in ex[:5]]
-            target_s = ex[5].cuda(non_blocking=True)
-            target_e = ex[6].cuda(non_blocking=True)
+                      for e in ex[:7]]
+            target_s = ex[7].cuda(non_blocking=True)
+            target_e = ex[8].cuda(non_blocking=True)
         else:
-            inputs = [e if e is None else e for e in ex[:5]]
-            target_s = ex[5]
-            target_e = ex[6]
+            inputs = [e if e is None else e for e in ex[:7]]
+            target_s = ex[7]
+            target_e = ex[8]
 
         # Run forward
         score_s, score_e = self.network(*inputs)
@@ -281,9 +281,9 @@ class DocReader(object):
         # Transfer to GPU
         if self.use_cuda:
             inputs = [e if e is None else e.cuda(non_blocking=True)
-                      for e in ex[:5]]
+                      for e in ex[:7]]
         else:
-            inputs = [e for e in ex[:5]]
+            inputs = [e for e in ex[:7]]
 
         # Run forward
         with torch.no_grad():

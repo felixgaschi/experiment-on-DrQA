@@ -14,6 +14,7 @@ import os
 import sys
 import subprocess
 import logging
+import string
 
 
 from drqa.reader import utils, vector, config, data
@@ -114,6 +115,14 @@ def add_train_args(parser):
                          help='Log state after every <display_iter> epochs')
     general.add_argument('--sort-by-len', type='bool', default=True,
                          help='Sort batches by length for speed')
+
+    char_emb = parser.add_argument_group("Character Embedding")
+    char_emb.add_argument("--use-charemb", type="bool", default=False)
+    char_emb.add_argument("--characters", type=str, default=['<pad>'] + list(string.printable))
+    char_emb.add_argument("--charemb-dim", type=int, default=200)
+    char_emb.add_argument("--char-len", type=int, default=16)
+    char_emb.add_argument("--before-qemb", type="bool", default=False)
+    char_emb.add_argument("--charemb-kernel-size", type=int, default=5)
 
 
 def set_defaults(args):
