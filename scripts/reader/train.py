@@ -297,8 +297,10 @@ def validate_official(args, data_loader, model, global_stats,
         pred_s, pred_e, _ = model.predict(ex)
 
         for i in range(batch_size):
-            s_offset = offsets[ex_id[i]][pred_s[i][0]][0]
-            e_offset = offsets[ex_id[i]][pred_e[i][0]][1]
+            index_s = min(pred_s[i][0], len(offsets[ex_id[i]]) - 1)
+            index_e = min(pred_e[i][0], len(offsets[ex_id[i]]) - 1)
+            s_offset = offsets[ex_id[i]][index_s][0]
+            e_offset = offsets[ex_id[i]][index_e][1]
             prediction = texts[ex_id[i]][s_offset:e_offset]
 
             # Compute metrics
