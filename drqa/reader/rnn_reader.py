@@ -39,28 +39,55 @@ class RnnDocReader(nn.Module):
             doc_input_size += args.embedding_dim
 
         # RNN document encoder
-        self.doc_rnn = layers.StackedBRNN(
-            input_size=doc_input_size,
-            hidden_size=args.hidden_size,
-            num_layers=args.doc_layers,
-            dropout_rate=args.dropout_rnn,
-            dropout_output=args.dropout_rnn_output,
-            concat_layers=args.concat_rnn_layers,
-            rnn_type=self.RNN_TYPES[args.rnn_type],
-            padding=args.rnn_padding,
-        )
+        if self.args.use_cnn:
+            self.doc_rnn = layers.StackedConvolutions(
+                input_size=doc_input_size,
+                hidden_size=args.hidden_size,
+                num_layers=args.doc_layers,
+                kernel_size=args.kernel_size,
+                dropout_rate=args.dropout_rnn,
+                dropout_output=args.dropout_rnn_output,
+                concat_layers=args.concat_rnn_layers,
+                is_separated=args.is_separated,
+                is_dilated=args.is_dilated
+            )
+        else:
+            self.doc_rnn = layers.StackedBRNN(
+                input_size=doc_input_size,
+                hidden_size=args.hidden_size,
+                num_layers=args.doc_layers,
+                dropout_rate=args.dropout_rnn,
+                dropout_output=args.dropout_rnn_output,
+                concat_layers=args.concat_rnn_layers,
+                rnn_type=self.RNN_TYPES[args.rnn_type],
+                padding=args.rnn_padding,
+            )
+
 
         # RNN question encoder
-        self.question_rnn = layers.StackedBRNN(
-            input_size=args.embedding_dim,
-            hidden_size=args.hidden_size,
-            num_layers=args.question_layers,
-            dropout_rate=args.dropout_rnn,
-            dropout_output=args.dropout_rnn_output,
-            concat_layers=args.concat_rnn_layers,
-            rnn_type=self.RNN_TYPES[args.rnn_type],
-            padding=args.rnn_padding,
-        )
+        if self.args.use_cnn:
+            self.question_rnn = layers.StackedConvolutions(
+                input_size=args.embedding_dim,
+                hidden_size=args.hidden_size,
+                num_layers=args.question_layers,
+                kernel_size=args.kernel_size,
+                dropout_rate=args.dropout_rnn,
+                dropout_output=args.dropout_rnn_output,
+                concat_layers=args.concat_rnn_layers,
+                is_separated=args.is_separated,
+                is_dilated=args.is_dilated
+            )
+        else:
+            self.question_rnn = layers.StackedBRNN(
+                input_size=args.embedding_dim,
+                hidden_size=args.hidden_size,
+                num_layers=args.question_layers,
+                dropout_rate=args.dropout_rnn,
+                dropout_output=args.dropout_rnn_output,
+                concat_layers=args.concat_rnn_layers,
+                rnn_type=self.RNN_TYPES[args.rnn_type],
+                padding=args.rnn_padding,
+            )
 
         # Output sizes of rnn encoders
         doc_hidden_size = 2 * args.hidden_size
