@@ -73,10 +73,10 @@ def add_train_args(parser):
     files.add_argument('--data-dir', type=str, default=DATA_DIR,
                        help='Directory of training/validation data')
     files.add_argument('--train-file', type=str,
-                       default='SQuAD-v1.1-train-processed-corenlp.txt',
+                       default='SQuAD-v1.1-train-processed-spacy.txt',
                        help='Preprocessed train file')
     files.add_argument('--dev-file', type=str,
-                       default='SQuAD-v1.1-dev-processed-corenlp.txt',
+                       default='SQuAD-v1.1-dev-processed-spacy.txt',
                        help='Preprocessed dev file')
     files.add_argument('--dev-json', type=str, default='SQuAD-v1.1-dev.json',
                        help=('Unprocessed dev file to run validation '
@@ -116,14 +116,7 @@ def add_train_args(parser):
     general.add_argument('--sort-by-len', type='bool', default=True,
                          help='Sort batches by length for speed')
 
-    char_emb = parser.add_argument_group("Character Embedding")
-    char_emb.add_argument("--use-charemb", type="bool", default=False)
-    char_emb.add_argument("--characters", type=str, default=['<pad>'] + list(string.printable))
-    char_emb.add_argument("--charemb-dim", type=int, default=200)
-    char_emb.add_argument("--char-len", type=int, default=16)
-    char_emb.add_argument("--before-qemb", type="bool", default=False)
-    char_emb.add_argument("--charemb-kernel-size", type=int, default=5)
-
+    
 
 def set_defaults(args):
     """Make sure the commandline arguments are initialized properly."""

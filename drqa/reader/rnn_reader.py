@@ -48,6 +48,14 @@ class RnnDocReader(nn.Module):
         if args.use_charemb:
             doc_input_size += args.charemb_dim
 
+        if args.use_highway:
+            self.doc_highway = layers.HighwayLayer(
+                input_size=doc_input_size,
+                drop_h=args.drop_h,
+                drop_t=args.drop_t,
+                dropout_rate=args.dropout_highway
+            )
+
         # RNN document encoder
         self.doc_rnn = layers.StackedBRNN(
             input_size=doc_input_size,
@@ -59,6 +67,14 @@ class RnnDocReader(nn.Module):
             rnn_type=self.RNN_TYPES[args.rnn_type],
             padding=args.rnn_padding,
         )
+
+        if args.use_highway:
+            self.question_highway = layers.HighwayLayer(
+                input_size=question_emb_dim,
+                drop_h=args.drop_h,
+                drop_t=args.drop_t,
+                dropout_rate=args.dropout_highway
+            )
 
         # RNN question encoder
         self.question_rnn = layers.StackedBRNN(
@@ -159,11 +175,16 @@ class RnnDocReader(nn.Module):
             drnn_input.append(x1_f)
 
         # Encode document with RNN
-        doc_hiddens = self.doc_rnn(torch.cat(drnn_input, 2), x1_mask)
+        doc_input = torch.cat(drnn_input, 2)
+        if self.args.use_highway:
+            doc_input = self.doc_highway(doc_input)
+        doc_hiddens = self.doc_rnn(doc_input, x1_mask)
 
         # Encode question with RNN + merge hiddens
         if self.args.use_charemb and not self.args.before_qemb:
             x2_emb = torch.cat([x2_emb, x2_char_emb], 2)
+        if self.args.use_highway:
+            x2_emb = self.question_highway(x2_emb)
         question_hiddens = self.question_rnn(x2_emb, x2_mask)
         if self.args.question_merge == 'avg':
             q_merge_weights = layers.uniform_weights(question_hiddens, x2_mask)

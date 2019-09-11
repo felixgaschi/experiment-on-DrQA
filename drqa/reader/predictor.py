@@ -46,7 +46,7 @@ class Predictor(object):
     """Load a pretrained DocReader model and predict inputs on the fly."""
 
     def __init__(self, model=None, tokenizer=None, normalize=True,
-                 embedding_file=None, num_workers=None):
+                 embedding_file=None, num_workers=None, other_args=None):
         """
         Args:
             model: path to saved model file.
@@ -58,7 +58,7 @@ class Predictor(object):
         """
         logger.info('Initializing model...')
         self.model = DocReader.load(model or DEFAULTS['model'],
-                                    normalize=normalize)
+                                    normalize=normalize, other_args=other_args)
 
         if embedding_file:
             logger.info('Expanding dictionary...')

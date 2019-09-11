@@ -277,6 +277,28 @@ class LinearSeqAttn(nn.Module):
         return alpha
 
 
+class HighwayLayer(nn.Module):
+
+    def __init__(self, input_size, drop_h=False, drop_t=False, dropout_rate=0):
+        super(HighwayLayer, self).__init__()
+        self.H = nn.Linear(input_size, input_size)
+        self.T = nn.Linear(input_size, input_size)
+        self.drop_h = drop_h
+        self.drop_t = drop_t
+        self.dropout_rate = dropout_rate
+
+    def forward(self, x):
+        h = F.relu(self.H(x.view(-1, x.size(2))).view(x.size()))
+        t = F.sigmoid(self.T(x.view(-1, x.size(2))).view(x.size()))
+
+        if self.drop_h and self.dropout_rate > 0:
+            h = F.dropout(h, p=self.dropout_rate, training=self.training)
+        if self.drop_t and self.dropout_rate > 0:
+            t = F.dropout(t, p=self.dropout_rate, training=self.training)
+        
+        return h * t + x * (1 - t)
+
+
 # ------------------------------------------------------------------------------
 # Functional
 # ------------------------------------------------------------------------------

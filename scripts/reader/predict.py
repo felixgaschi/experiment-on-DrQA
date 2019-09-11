@@ -15,6 +15,7 @@ import json
 
 from tqdm import tqdm
 from drqa.reader import Predictor
+from drqa.reader.config import add_model_args
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -49,6 +50,7 @@ parser.add_argument('--top-n', type=int, default=1,
                     help='Store top N predicted spans per example')
 parser.add_argument('--official', action='store_true',
                     help='Only store single top span instead of top N list')
+parser.add_argument('--use-default', action="store_true")
 args = parser.parse_args()
 t0 = time.time()
 
@@ -59,11 +61,20 @@ if args.cuda:
 else:
     logger.info('Running on CPU only.')
 
+if args.use_default:
+    other_parser = argparse.ArgumentParser()
+    add_model_args(other_parser)
+    other_args = other_parser.parse_args([])
+else:
+    print("no other args")
+    other_args = None
+
 predictor = Predictor(
     model=args.model,
     tokenizer=args.tokenizer,
     embedding_file=args.embedding_file,
     num_workers=args.num_workers,
+    other_args=other_args
 )
 if args.cuda:
     predictor.cuda()

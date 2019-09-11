@@ -93,7 +93,7 @@ def vectorize(ex, model, single_answer=False):
 
     # Maybe return without target
     if 'answers' not in ex:
-        return document, features, question, ex['id']
+        return document, features, question, document_char, question_char, ex['id']
 
     # ...or with target(s) (might still be empty if answers is empty)
     if single_answer:
@@ -134,7 +134,7 @@ def batchify(batch):
         if x1_f is not None:
             x1_f[i, :d.size(0)].copy_(features[i])
     
-    if document_char is not None:
+    if document_char is not None and document_char[0] is not None:
         char_size = document_char[0].size(-1)
         x1_char = torch.LongTensor(len(docs), max_length, char_size).zero_()
         for i, d in enumerate(document_char):
@@ -152,7 +152,7 @@ def batchify(batch):
         x2[i, :q.size(0)].copy_(q)
         x2_mask[i, :q.size(0)].fill_(0)
 
-    if question_char is not None:
+    if question_char is not None and question_char[0] is not None:
         char_size = question_char[0].size(-1)
         x2_char = torch.LongTensor(len(docs), max_length, char_size).zero_()
         for i, q in enumerate(question_char):

@@ -8,6 +8,7 @@
 
 import argparse
 import logging
+import string
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +17,16 @@ MODEL_ARCHITECTURE = {
     'model_type', 'embedding_dim', 'hidden_size', 'doc_layers',
     'question_layers', 'rnn_type', 'concat_rnn_layers', 'question_merge',
     'use_qemb', 'use_in_question', 'use_pos', 'use_ner', 'use_lemma', 'use_tf',
-    'use_charemb', 'characters', 'charemb_dim', 'char_len', 'before_qemb', 'charemb_kernel_size'
+    'use_charemb', 'characters', 'charemb_dim', 'char_len', 'before_qemb', 'charemb_kernel_size',
+    'use_highway'
 }
 
 # Index of arguments concerning the model optimizer/training
 MODEL_OPTIMIZER = {
     'fix_embeddings', 'optimizer', 'learning_rate', 'momentum', 'weight_decay',
     'rnn_padding', 'dropout_rnn', 'dropout_rnn_output', 'dropout_emb',
-    'max_len', 'grad_clipping', 'tune_partial'
+    'max_len', 'grad_clipping', 'tune_partial',
+    'drop_h', 'drop_t', 'dropout_highway'
 }
 
 
@@ -48,6 +51,14 @@ def add_model_args(parser):
                        help='Number of encoding layers for question')
     model.add_argument('--rnn-type', type=str, default='lstm',
                        help='RNN type: LSTM, GRU, or RNN')
+    model.add_argument('--use-highway', type='bool', default=False)
+    model.add_argument("--use-charemb", type="bool", default=False)
+    model.add_argument("--characters", type=str, default=['<pad>'] + list(string.printable))
+    model.add_argument("--charemb-dim", type=int, default=200)
+    model.add_argument("--char-len", type=int, default=16)
+    model.add_argument("--before-qemb", type="bool", default=False)
+    model.add_argument("--charemb-kernel-size", type=int, default=5)
+
 
     # Model specific details
     detail = parser.add_argument_group('DrQA Reader Model Details')
@@ -94,6 +105,9 @@ def add_model_args(parser):
                        help='Explicitly account for padding in RNN encoding')
     optim.add_argument('--max-len', type=int, default=15,
                        help='The max span allowed during decoding')
+    optim.add_argument('--drop-h', type='bool', default=True)
+    optim.add_argument('--drop-t', type='bool', default=True)
+    optim.add_argument('--dropout-highway', type=float, default=0.0)
 
 
 def get_model_args(args):

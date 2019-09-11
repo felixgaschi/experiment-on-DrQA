@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import numpy as np
 import logging
 import copy
+import argparse
 
 from .config import override_model_args
 from .rnn_reader import RnnDocReader
@@ -433,7 +434,7 @@ class DocReader(object):
             logger.warning('WARN: Saving failed... continuing anyway.')
 
     @staticmethod
-    def load(filename, new_args=None, normalize=True):
+    def load(filename, new_args=None, other_args=None, normalize=True):
         logger.info('Loading model %s' % filename)
         saved_params = torch.load(
             filename, map_location=lambda storage, loc: storage
@@ -444,6 +445,13 @@ class DocReader(object):
         args = saved_params['args']
         if new_args:
             args = override_model_args(args, new_args)
+        if other_args:
+            args_dict = vars(args)
+            default_dict = vars(other_args)
+            for key in default_dict.keys():
+                if key not in args_dict.keys():
+                    args_dict[key] = default_dict[key]
+            args = argparse.Namespace(**args_dict)
         return DocReader(args, word_dict, feature_dict, state_dict, normalize)
 
     @staticmethod
