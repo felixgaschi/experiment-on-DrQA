@@ -18,7 +18,9 @@ MODEL_ARCHITECTURE = {
     'question_layers', 'rnn_type', 'concat_rnn_layers', 'question_merge',
     'use_qemb', 'use_in_question', 'use_pos', 'use_ner', 'use_lemma', 'use_tf',
     'use_charemb', 'characters', 'charemb_dim', 'char_len', 'before_qemb', 'charemb_kernel_size',
-    'use_highway'
+    'use_highway',
+    'use_cnn', 'kernel_size', 'is_separated', 'is_dilated', 'highway_with_cnn',
+    'use_transformer', 'nhead', 'dim_feedforward'
 }
 
 # Index of arguments concerning the model optimizer/training
@@ -58,7 +60,14 @@ def add_model_args(parser):
     model.add_argument("--char-len", type=int, default=16)
     model.add_argument("--before-qemb", type="bool", default=False)
     model.add_argument("--charemb-kernel-size", type=int, default=5)
-
+    model.add_argument('--use-cnn', type="bool", default=False)
+    model.add_argument('--kernel-size', type=int, default=5)
+    model.add_argument('--is-separated', type="bool", default=False)
+    model.add_argument('--is-dilated', type='bool', default=False)
+    model.add_argument('--highway-with-cnn', type='bool', default=True)
+    model.add_argument('--use-transformer', type='bool', default=False)
+    model.add_argument('--nhead', type=int, default=8)
+    model.add_argument('--dim-feedforward', type=int, default=1024)
 
     # Model specific details
     detail = parser.add_argument_group('DrQA Reader Model Details')

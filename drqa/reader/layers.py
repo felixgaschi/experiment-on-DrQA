@@ -331,3 +331,100 @@ def weighted_avg(x, weights):
         x_avg: batch * hdim
     """
     return weights.unsqueeze(1).bmm(x).squeeze(1)
+
+class StackedConvolutions(nn.Module):
+
+    def __init__(self, input_size, hidden_size, num_layers, kernel_size,
+                 dropout_rate=0, dropout_output=False, concat_layers=False,
+                 is_separated=False, is_dilated=False, use_highway=False):
+        super(StackedConvolutions, self).__init__()
+        self.dropout_output = dropout_output
+        self.dropout_rate = dropout_rate
+        self.num_layers = num_layers
+        self.concat_layers = concat_layers
+        self.kernel_size = kernel_size
+        self.is_separated = is_separated
+        self.is_dilated = is_dilated
+        self.use_highway = use_highway
+
+        #TODO add different type of convolution (separable, dilated ...)
+        self.convs = nn.ModuleList()
+        assert kernel_size % 2 == 1, 'kernel size must be odd (for simpler padding and dilatation)'
+        
+        self.t_convs = nn.ModuleList()
+
+        if is_separated and input_size != hidden_size:
+            self.convs.append(nn.Conv1d(
+                input_size, 2 * hidden_size, 1
+            ))
+            if use_highway:
+                self.t_convs.append(nn.Conv1d(
+                input_size, 2 * hidden_size, 1
+            ))
+        
+        self.has_projection = (is_separated and input_size != hidden_size)
+        
+        for i in range(num_layers):
+            input_size = input_size if i == 0 and not self.has_projection else 2 * hidden_size
+            if is_dilated:
+                if is_separated:
+                    dilation = 1 if i == 0 else kernel_size ** (i - 1)
+                else:
+                    dilation = kernel_size ** i
+            else:
+                dilation = 1
+            self.convs.append(nn.Conv1d(
+                input_size, 2 * hidden_size, 
+                (1 if is_separated and i == 0 else kernel_size),
+                padding=dilation * (kernel_size - 1) // 2,
+                dilation=dilation,
+                groups=input_size if is_separated and i != 0 else 1
+            ))
+            if use_highway:
+                self.t_convs.append(nn.Conv1d(
+                    input_size, 2 * hidden_size, 
+                    (1 if is_separated and i == 0 else kernel_size),
+                    padding=dilation * (kernel_size - 1) // 2,
+                    dilation=dilation,
+                    groups=input_size if is_separated and i != 0 else 1
+                ))
+
+    def forward(self, x, x_mask):
+        """Faster encoding that ignores any padding."""
+        # Transpose sequence and channel dims
+        x = x.transpose(1, 2)
+
+        # Encode all layers
+        outputs = [x]
+        for i in range(self.num_layers):
+            conv_input = outputs[-1]
+
+            # Apply dropout to hidden input
+            if self.dropout_rate > 0:
+                conv_input = F.dropout(conv_input,
+                                      p=self.dropout_rate,
+                                      training=self.training)
+            # Forward
+            conv_output = self.convs[i](conv_input)
+            
+            if i != 0 and self.use_highway:
+                T = self.t_convs[i](conv_input)
+                conv_output = conv_output * T + conv_input * (1 - T)
+            outputs.append(conv_output)
+
+        # Concat hidden layers
+        if self.concat_layers:
+            output = torch.cat(outputs[1:], 1)
+        else:
+            output = outputs[-1]
+
+        # Transpose back
+        output = output.transpose(1, 2)
+
+        # Dropout on output layer
+        if self.dropout_output and self.dropout_rate > 0:
+            output = F.dropout(output,
+                               p=self.dropout_rate,
+                               training=self.training)
+        return output.contiguous()
+
