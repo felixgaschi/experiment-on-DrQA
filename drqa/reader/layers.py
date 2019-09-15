@@ -314,7 +314,7 @@ class StackedConvolutions(nn.Module):
 
     def __init__(self, input_size, hidden_size, num_layers, kernel_size,
                  dropout_rate=0, dropout_output=False, concat_layers=False,
-                 is_separated=False, is_dilated=False):
+                 is_separated=False, is_dilated=False, use_highway=False):
         super(StackedConvolutions, self).__init__()
         self.dropout_output = dropout_output
         self.dropout_rate = dropout_rate
@@ -323,13 +323,20 @@ class StackedConvolutions(nn.Module):
         self.kernel_size = kernel_size
         self.is_separated = is_separated
         self.is_dilated = is_dilated
+        self.use_highway = use_highway
 
         #TODO add different type of convolution (separable, dilated ...)
         self.convs = nn.ModuleList()
         assert kernel_size % 2 == 1, 'kernel size must be odd (for simpler padding and dilatation)'
         
+        self.t_convs = nn.ModuleList()
+
         if is_separated and input_size != hidden_size:
             self.convs.append(nn.Conv1d(
+                input_size, 2 * hidden_size, 1
+            ))
+            if use_highway:
+                self.t_convs.append(nn.Conv1d(
                 input_size, 2 * hidden_size, 1
             ))
         
@@ -351,6 +358,14 @@ class StackedConvolutions(nn.Module):
                 dilation=dilation,
                 groups=input_size if is_separated and i != 0 else 1
             ))
+            if use_highway:
+                self.t_convs.append(nn.Conv1d(
+                    input_size, 2 * hidden_size, 
+                    (1 if is_separated and i == 0 else kernel_size),
+                    padding=dilation * (kernel_size - 1) // 2,
+                    dilation=dilation,
+                    groups=input_size if is_separated and i != 0 else 1
+                ))
 
     def forward(self, x, x_mask):
         """Faster encoding that ignores any padding."""
@@ -369,6 +384,10 @@ class StackedConvolutions(nn.Module):
                                       training=self.training)
             # Forward
             conv_output = self.convs[i](conv_input)
+            
+            if i != 0 and self.use_highway:
+                T = self.t_convs[i](conv_input)
+                conv_output = conv_output * T + conv_input * (1 - T)
             outputs.append(conv_output)
 
         # Concat hidden layers
@@ -386,3 +405,4 @@ class StackedConvolutions(nn.Module):
                                p=self.dropout_rate,
                                training=self.training)
         return output.contiguous()
+
