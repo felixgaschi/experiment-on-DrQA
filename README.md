@@ -1,4 +1,8 @@
 # DrQA
+
+This is forked from the official DrQA repository, I modified some chunk of code to make some experiments for my master thesis, adding character embedding, highway layer and the possibility to change the encoder for stacked convolution and transformer.
+The following of the README is the original README from the repository only the reader has been modified. 
+
 This is a PyTorch implementation of the DrQA system described in the ACL 2017 paper [Reading Wikipedia to Answer Open-Domain Questions](https://arxiv.org/abs/1704.00051).
 
 ## Quick Links
