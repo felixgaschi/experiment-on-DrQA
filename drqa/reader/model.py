@@ -14,6 +14,8 @@ import logging
 import copy
 import argparse
 
+from tqdm import tqdm
+
 from .config import override_model_args
 from .rnn_reader import RnnDocReader
 
@@ -67,7 +69,8 @@ class DocReader(object):
         Output:
             added: set of tokens that were added.
         """
-        to_add = {self.word_dict.normalize(w) for w in words
+        to_add = {self.word_dict.normalize(w, lower=self.word_dict.lower, remove=self.word_dict.remove) 
+                  for w in words
                   if w not in self.word_dict}
 
         # Add words to dictionary and expand embedding layer
@@ -111,7 +114,11 @@ class DocReader(object):
             for line in f:
                 parsed = line.rstrip().split(' ')
                 assert(len(parsed) == embedding.size(1) + 1)
-                w = self.word_dict.normalize(parsed[0])
+                w = self.word_dict.normalize(
+                    parsed[0],
+                    lower=self.word_dict.lower,
+                    remove=self.word_dict.remove
+                )
                 if w in words:
                     vec = torch.Tensor([float(i) for i in parsed[1:]])
                     if w not in vec_counts:
@@ -129,6 +136,40 @@ class DocReader(object):
 
         logger.info('Loaded %d embeddings (%.2f%%)' %
                     (len(vec_counts), 100 * len(vec_counts) / len(words)))
+
+    def load_tsv(self, words, embedding_file, vocab_file):
+
+        words = {w for w in words if w in self.word_dict}
+        logger.info('Loading pre-trained embeddings for %d words from %s' %
+                    (len(words), embedding_file))
+        embedding = self.network.embedding.weight.data
+
+        id2w = {}
+        with open(vocab_file) as f:
+            for i, line in enumerate(f):
+                if i == 0:
+                    continue
+                parsed = line.rstrip().split("\t")
+                w = self.word_dict.normalize(
+                    parsed[0],
+                    lower=self.word_dict.lower,
+                    remove=self.word_dict.remove
+                )
+                if w in words:
+                    id2w[int(parsed[1])] = w
+
+        vec_counts = {}
+        with open(embedding_file) as f:
+            for i, line_emb in enumerate(f):
+                if i in id2w.keys():
+                    w = id2w[i]
+                    vec_counts[w] = 1
+                    vec = torch.Tensor([float(j) for j in line_emb.rstrip().split("\t")])
+                    embedding[self.word_dict[w]].copy_(vec)
+                    
+        logger.info('Loaded %d embeddings (%.2f%%)' %
+                    (len(vec_counts), 100 * len(vec_counts) / len(words)))
+
 
     def tune_embeddings(self, words):
         """Unfix the embeddings of a list of words. This is only relevant if

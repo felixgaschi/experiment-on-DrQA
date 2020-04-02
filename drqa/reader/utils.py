@@ -78,37 +78,69 @@ def load_answers(filename):
 # Dictionary building
 # ------------------------------------------------------------------------------
 
-
-def index_embedding_words(embedding_file):
+def index_embedding_words(embedding_file, lower=False, remove=None):
     """Put all the words in embedding_file into a set."""
     words = set()
     with open(embedding_file) as f:
         for line in f:
-            w = Dictionary.normalize(line.rstrip().split(' ')[0])
+            w = Dictionary.normalize(
+                line.rstrip().split(' ')[0],
+                lower=lower,
+                remove=remove
+            )
             words.add(w)
     return words
 
+def index_embedding_words_tsv(vocab_file, lower=False, remove=None):
+    words = set()
+    with open(vocab_file) as f:
+        for i, line in enumerate(f):
+            if i == 0:
+                continue
+            w = Dictionary.normalize(
+                line.rstrip().split("\t")[0],
+                lower=lower,
+                remove=remove
+            )
+            words.add(w)
+    return words
 
 def load_words(args, examples):
     """Iterate and index all the words in examples (documents + questions)."""
-    def _insert(iterable):
-        for w in iterable:
-            w = Dictionary.normalize(w)
-            if valid_words and w not in valid_words:
-                continue
-            words.add(w)
-
     if args.restrict_vocab and args.embedding_file:
         logger.info('Restricting to words in %s' % args.embedding_file)
-        valid_words = index_embedding_words(args.embedding_file)
+        if args.use_tsv:
+            valid_words = index_embedding_words_tsv(
+                args.vocab_file, 
+                lower=args.lower,
+                remove=args.remove
+            )
+        else:
+            valid_words = index_embedding_words(
+                args.embedding_file,
+                lower=args.lower,
+                remove=args.remove
+            )
         logger.info('Num words in set = %d' % len(valid_words))
     else:
         valid_words = None
+    
+    def _insert(iterable, words, valid_words):
+        for w in iterable:
+            w = Dictionary.normalize(
+                w,
+                lower=args.lower,
+                remove=args.remove
+            )
+            if valid_words and w not in valid_words:
+                continue
+            words.add(w)
+        return words
 
     words = set()
-    for ex in examples:
-        _insert(ex['question'])
-        _insert(ex['document'])
+    for i, ex in enumerate(examples):
+        words = _insert(ex['question'], words, valid_words)
+        words = _insert(ex['document'], words, valid_words)
     return words
 
 
@@ -116,7 +148,7 @@ def build_word_dict(args, examples):
     """Return a dictionary from question and document words in
     provided examples.
     """
-    word_dict = Dictionary()
+    word_dict = Dictionary(lower=args.lower, remove=args.remove)
     for w in load_words(args, examples):
         word_dict.add(w)
     return word_dict
@@ -127,7 +159,11 @@ def top_question_words(args, examples, word_dict):
     word_count = Counter()
     for ex in examples:
         for w in ex['question']:
-            w = Dictionary.normalize(w)
+            w = Dictionary.normalize(
+                w,
+                lower=args.lower,
+                remove=args.remove
+            )
             if w in word_dict:
                 word_count.update([w])
     return word_count.most_common(args.tune_partial)

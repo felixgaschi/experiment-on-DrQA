@@ -9,6 +9,7 @@
 import numpy as np
 import logging
 import unicodedata
+import re
 
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
@@ -28,12 +29,19 @@ class Dictionary(object):
     START = 2
 
     @staticmethod
-    def normalize(token):
-        return unicodedata.normalize('NFD', token)
+    def normalize(token, lower=False, remove=None):
+        if lower:
+            token = token.lower()
+        token = unicodedata.normalize("NFD", token)
+        if remove:
+            token = re.sub(remove, "", token)
+        return token
 
-    def __init__(self):
+    def __init__(self, lower=False, remove=None):
         self.tok2ind = {self.NULL: 0, self.UNK: 1}
         self.ind2tok = {0: self.NULL, 1: self.UNK}
+        self.lower = lower
+        self.remove = remove
 
     def __len__(self):
         return len(self.tok2ind)
@@ -45,13 +53,14 @@ class Dictionary(object):
         if type(key) == int:
             return key in self.ind2tok
         elif type(key) == str:
-            return self.normalize(key) in self.tok2ind
+            return self.normalize(
+                key, lower=self.lower, remove=self.remove) in self.tok2ind
 
     def __getitem__(self, key):
         if type(key) == int:
             return self.ind2tok.get(key, self.UNK)
         if type(key) == str:
-            return self.tok2ind.get(self.normalize(key),
+            return self.tok2ind.get(self.normalize(key, lower=self.lower, remove=self.remove),
                                     self.tok2ind.get(self.UNK))
 
     def __setitem__(self, key, item):
@@ -63,7 +72,7 @@ class Dictionary(object):
             raise RuntimeError('Invalid (key, item) types.')
 
     def add(self, token):
-        token = self.normalize(token)
+        token = self.normalize(token, lower=self.lower, remove=self.remove)
         if token not in self.tok2ind:
             index = len(self.tok2ind)
             self.tok2ind[token] = index

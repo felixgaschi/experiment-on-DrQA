@@ -21,6 +21,7 @@ from .corenlp_tokenizer import CoreNLPTokenizer
 from .regexp_tokenizer import RegexpTokenizer
 from .simple_tokenizer import SimpleTokenizer
 from .spacy_tokenizer import SpacyTokenizer
+from .bpe_tokenizer import BPETokenizer
 
 # Spacy is optional
 try:
@@ -38,6 +39,8 @@ def get_class(name):
         return RegexpTokenizer
     if name == 'simple':
         return SimpleTokenizer
+    if name == "bpe":
+        return BPETokenizer
 
     raise RuntimeError('Invalid tokenizer: %s' % name)
 

@@ -86,6 +86,7 @@ def add_train_args(parser):
     files.add_argument('--embedding-file', type=str,
                        default='glove.840B.300d.txt',
                        help='Space-separated pretrained embeddings file')
+    files.add_argument('--vocab-file', type=str, default="")
 
     # Saving + loading
     save_load = parser.add_argument_group('Saving/Loading')
@@ -104,6 +105,9 @@ def add_train_args(parser):
                             help='Document words will be lower-cased')
     preprocess.add_argument('--restrict-vocab', type='bool', default=True,
                             help='Only use pre-trained words in embedding_file')
+    preprocess.add_argument('--use-tsv', type='bool', default=False)
+    preprocess.add_argument('--lower', type='bool', default=False)
+    preprocess.add_argument('--remove', type=str, default=None)
 
     # General
     general = parser.add_argument_group('General')
@@ -134,6 +138,10 @@ def set_defaults(args):
         args.embedding_file = os.path.join(args.embed_dir, args.embedding_file)
         if not os.path.isfile(args.embedding_file):
             raise IOError('No such file: %s' % args.embedding_file)
+    if args.vocab_file:
+        args.vocab_file = os.path.join(args.embed_dir, args.vocab_file)
+        if not os.path.isfile(args.vocab_file):
+            raise IOError('No such file: %s' % args.vocab_file)
 
     # Set model directory
     subprocess.call(['mkdir', '-p', args.model_dir])
@@ -150,16 +158,23 @@ def set_defaults(args):
 
     # Embeddings options
     if args.embedding_file:
-        with open(args.embedding_file) as f:
-            line = f.readline().rstrip().split(' ')
-            if len(line) == 2:
-                dim = int(line[1])
-            else:
-                dim = len(f.readline().rstrip().split(' ')) - 1
+        if args.use_tsv:
+            with open(args.embedding_file) as f:
+                line = f.readline().rstrip().split("\t")
+                dim = len(line)
+        else:
+            with open(args.embedding_file) as f:
+                line = f.readline().rstrip().split(' ')
+                if len(line) == 2:
+                    dim = int(line[1])
+                else:
+                    dim = len(f.readline().rstrip().split(' ')) - 1
         args.embedding_dim = dim
     elif not args.embedding_dim:
         raise RuntimeError('Either embedding_file or embedding_dim '
                            'needs to be specified.')
+    if args.use_tsv and not args.vocab_file:
+        raise RuntimeError('If `use_tsv`must specify a `vocab_file`')
 
     # Make sure tune_partial and fix_embeddings are consistent.
     if args.tune_partial > 0 and args.fix_embeddings:
@@ -200,7 +215,10 @@ def init_from_scratch(args, train_exs, dev_exs):
 
     # Load pretrained embeddings for words in dictionary
     if args.embedding_file:
-        model.load_embeddings(word_dict.tokens(), args.embedding_file)
+        if args.use_tsv:
+            model.load_tsv(word_dict.tokens(), args.embedding_file, args.vocab_file)
+        else:
+            model.load_embeddings(word_dict.tokens(), args.embedding_file)
 
     return model
 
@@ -401,7 +419,10 @@ def main(args):
                 added = model.expand_dictionary(words)
                 # Load pretrained embeddings for added words
                 if args.embedding_file:
-                    model.load_embeddings(added, args.embedding_file)
+                    if args.use_tsv:
+                        model.load_tsv(added, args.embedding_file, args.vocab_file)
+                    else:
+                        model.load_embeddings(added, args.embedding_file)
 
         else:
             logger.info('Training model from scratch...')
